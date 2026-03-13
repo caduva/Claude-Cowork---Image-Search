@@ -6,23 +6,26 @@ O resultado é equivalente ao que você obtém no browser do Gemini:
 o modelo busca na internet em tempo real antes de responder.
 
 SETUP (1x — rode no terminal do Windows):
-  pip install google-generativeai pillow openpyxl
+  pip install google-genai openpyxl
 
 COMO USAR:
-  1. Cole sua API key abaixo (https://aistudio.google.com/app/apikey)
+  1. Defina a variável de ambiente API_KEY_GEMINI_FUSE com sua chave
   2. Execute: python analise_obras_gemini.py
 
 NOME DOS ARQUIVOS:
   O script usa o nome do arquivo como identificação da obra no prompt.
   Exemplo: "Adriana Varejão_Açougue song_2000_(1).jpg"
            → prompt enviado com "Adriana Varejão_Açougue song_2000"
+
+ESTRATÉGIA DE MODELOS:
+  1. Tenta primeiro com MODELO_PRIMARIO (gemini-3.1-pro-preview)
+  2. Se não encontrar referências, tenta novamente com MODELO_FALLBACK (gemini-3-flash-preview)
 """
 
 import os
 import re
 import json
 import time
-import base64
 from pathlib import Path
 from datetime import datetime
 
@@ -36,15 +39,28 @@ PASTA_IMAGENS = r"C:\Users\ctucunduva\fontes fuse\Artworks - atual 10_03_2026"
 
 EXTENSOES = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".PNG", ".JPEG"]
 
-# gemini-2.0-flash: modelo atual com suporte a Google Search Grounding
-# (equivalente ao que você usa no browser do Gemini)
-MODELO = "gemini-2.0-flash"
+MODELO_PRIMARIO = "gemini-3.1-pro-preview"
+MODELO_FALLBACK = "gemini-3-flash-preview"
 
 PROMPT_PADRAO = (
-    "Please find interpretations of this artwork on the internet: {identificacao}. "
-    "If you can't find the references for the work online, don't try to guess or make "
-    "your own interpretation; simply report that you couldn't find them."
+    "Role: You are an art historian providing a factual analysis. "
+    "Task: Provide a thematic interpretation and factual overview of the attached artwork {identificacao}. "
+    "Constraints: "
+    "No bold or italics: Do not use ** for bold or * and _ for italics. Numbered lists, indentation, and line breaks are allowed and encouraged to organize the analysis. "
+    "No Attributions: Do not mention \"critics,\" \"reviewers,\" \"art writers,\" or \"sources\" unless the source is the artist themselves. State the interpretations as direct facts. "
+    "No Intro/Outro: Start immediately with the analysis. Do not include phrases like \"Based on my research\" or \"Here is the interpretation.\" "
+    "Tone: Direct, academic, and objective. "
+    "If you can't find the references for the work online, don't try to guess or make your own interpretation; simply report that you couldn't find them."
 )
+
+# Frases que indicam que o modelo não encontrou referências
+NAO_ENCONTROU_KEYWORDS = [
+    "unable to find", "could not find", "couldn't find", "not find",
+    "not found", "no references", "no online references", "no interpretations",
+    "cannot find", "can't find", "i was unable", "i could not", "i couldn't",
+    "did not find", "don't have", "do not have", "no specific information",
+    "no details", "no information", "no results", "no specific",
+]
 
 PAUSA_ENTRE_REQUISICOES = 3  # Segundos entre chamadas
 
@@ -58,10 +74,8 @@ def extrair_identificacao(nome_arquivo):
     Retorna a identificação limpa para o prompt.
     """
     stem = Path(nome_arquivo).stem
-    # Remove prefixo A_ ou A com espaço
     stem = re.sub(r'^A_\s*', '', stem)
     stem = re.sub(r'^A\s+', '', stem)
-    # Remove sufixos _text, _(1), _(2), _1, _2 no final
     stem = re.sub(r'[_\s]+text\s*$', '', stem, flags=re.IGNORECASE)
     stem = re.sub(r'[_\s]+[\(\[]?\d+[\)\]]?\s*$', '', stem)
     return stem.strip()
@@ -81,41 +95,36 @@ def agrupar_obras(pasta):
     grupos = {}
     for f in arquivos:
         if 'text' in f.stem.lower() and f.stem.lower().endswith('text'):
-            continue  # pula arquivos _text (são fotos do label)
+            continue
         chave = extrair_identificacao(f.name)
         if chave not in grupos:
-            grupos[chave] = f  # usa primeira imagem como representativa
+            grupos[chave] = f
 
     return list(grupos.items())
 
 
 def configurar_gemini():
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=API_KEY)
-        return genai
+        from google import genai
+        client = genai.Client(api_key=API_KEY)
+        return client
     except ImportError:
         print("Biblioteca nao instalada. Execute:")
-        print("  pip install google-generativeai pillow openpyxl")
-        input("Pressione Enter para sair...")
+        print("  pip install google-genai openpyxl")
         exit(1)
 
 
-def analisar_obra(genai, caminho_imagem, identificacao):
-    """
-    Envia imagem + prompt para o Gemini com Google Search Grounding ativado.
-    O modelo busca na internet antes de responder — igual ao browser.
-    """
-    from google.generativeai import types
+def nao_encontrou_referencias(texto):
+    """Retorna True se o modelo reportou que não encontrou referências online."""
+    texto_lower = (texto or "").lower()
+    return any(kw in texto_lower for kw in NAO_ENCONTROU_KEYWORDS)
 
-    model = genai.GenerativeModel(
-        model_name=MODELO,
-        tools=[types.Tool(google_search=types.GoogleSearch())]  # <-- Search Grounding
-    )
 
-    # Carregar imagem
+def chamar_modelo(client, caminho_imagem, identificacao, modelo):
+    from google.genai import types
+
     with open(caminho_imagem, "rb") as f:
-        dados_imagem = base64.b64encode(f.read()).decode("utf-8")
+        dados_imagem = f.read()
 
     ext = Path(caminho_imagem).suffix.lower()
     mime_map = {".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -125,13 +134,37 @@ def analisar_obra(genai, caminho_imagem, identificacao):
 
     prompt = PROMPT_PADRAO.format(identificacao=identificacao)
 
-    response = model.generate_content([
-        {"mime_type": mime_type, "data": dados_imagem},
-        prompt
-    ])
+    response = client.models.generate_content(
+        model=modelo,
+        contents=[
+            types.Part.from_bytes(data=dados_imagem, mime_type=mime_type),
+            prompt,
+        ],
+        config=types.GenerateContentConfig(
+            tools=[types.Tool(google_search=types.GoogleSearch())]
+        )
+    )
 
-    # Retorna texto exatamente como o Gemini gerou (preserva formatação)
     return response.text
+
+
+def analisar_obra(client, caminho_imagem, identificacao):
+    """
+    Tenta primeiro com o modelo primário (3.1 Pro).
+    Se não encontrar referências, tenta com o fallback (3 Flash).
+    Retorna (texto, modelo_usado).
+    """
+    texto = chamar_modelo(client, caminho_imagem, identificacao, MODELO_PRIMARIO)
+
+    if nao_encontrou_referencias(texto):
+        time.sleep(PAUSA_ENTRE_REQUISICOES)
+        texto_fallback = chamar_modelo(client, caminho_imagem, identificacao, MODELO_FALLBACK)
+        if not nao_encontrou_referencias(texto_fallback):
+            return texto_fallback, MODELO_FALLBACK
+        # Ambos não encontraram — retorna o do primário
+        return texto, MODELO_PRIMARIO
+
+    return texto, MODELO_PRIMARIO
 
 
 def salvar_json(resultados, caminho_saida):
@@ -153,7 +186,7 @@ def salvar_excel(resultados, caminho_saida):
     ws = wb.active
     ws.title = "Analise de Obras"
 
-    cabecalho = ["#", "Identificacao da Obra", "Arquivo", "Analise Gemini", "Status", "Timestamp"]
+    cabecalho = ["#", "Identificacao da Obra", "Arquivo", "Analise Gemini", "Modelo Usado", "Status", "Timestamp"]
     header_fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
     header_font = Font(bold=True, color="FFFFFF", size=11)
 
@@ -164,16 +197,19 @@ def salvar_excel(resultados, caminho_saida):
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
     alt_fill = PatternFill(start_color="DEEAF1", end_color="DEEAF1", fill_type="solid")
+    fallback_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
 
     for i, item in enumerate(resultados, 1):
         row = i + 1
-        fill = alt_fill if i % 2 == 0 else PatternFill()
+        usou_fallback = item.get("modelo_usado") == MODELO_FALLBACK
+        fill = fallback_fill if usou_fallback else (alt_fill if i % 2 == 0 else PatternFill())
 
         valores = [
             i,
             item.get("identificacao", ""),
             item.get("arquivo", ""),
             item.get("analise", item.get("erro", "")),
+            item.get("modelo_usado", ""),
             item.get("status", ""),
             item.get("timestamp", ""),
         ]
@@ -183,13 +219,14 @@ def salvar_excel(resultados, caminho_saida):
             cell.fill = fill
             cell.alignment = Alignment(wrap_text=True, vertical="top")
 
-    larguras = [5, 45, 35, 100, 10, 20]
+    larguras = [5, 45, 35, 100, 22, 10, 20]
     for col, largura in enumerate(larguras, 1):
         ws.column_dimensions[get_column_letter(col)].width = largura
 
     for row in range(2, len(resultados) + 2):
         ws.row_dimensions[row].height = 120
 
+    ws.freeze_panes = "A2"
     wb.save(caminho_saida)
     print(f"Excel salvo: {caminho_saida}")
 
@@ -201,26 +238,23 @@ def main():
 
     if API_KEY == "SUA_API_KEY_AQUI":
         print("\nERRO: Configure sua API key no inicio do script.")
-        print("Obtenha gratuitamente em: https://aistudio.google.com/app/apikey")
-        input("Pressione Enter para sair...")
         exit(1)
 
     pasta = Path(PASTA_IMAGENS)
     if not pasta.exists():
         print(f"\nERRO: Pasta nao encontrada: {PASTA_IMAGENS}")
-        input("Pressione Enter para sair...")
         exit(1)
 
     obras = agrupar_obras(PASTA_IMAGENS)
     if not obras:
         print(f"\nERRO: Nenhuma imagem encontrada em: {PASTA_IMAGENS}")
-        input("Pressione Enter para sair...")
         exit(1)
 
     print(f"\n{len(obras)} obras unicas encontradas")
-    print(f"Modelo: {MODELO} com Google Search Grounding\n")
+    print(f"Modelo primario:  {MODELO_PRIMARIO}")
+    print(f"Modelo fallback:  {MODELO_FALLBACK}\n")
 
-    genai = configurar_gemini()
+    client = configurar_gemini()
     resultados = []
     timestamp_inicio = datetime.now().strftime("%Y%m%d_%H%M%S")
     pasta_script = Path(__file__).parent
@@ -229,16 +263,18 @@ def main():
         print(f"[{idx}/{len(obras)}] {identificacao[:70]}...", end=" ", flush=True)
 
         try:
-            analise = analisar_obra(genai, str(caminho), identificacao)
+            analise, modelo_usado = analisar_obra(client, str(caminho), identificacao)
+            flag = f"[fallback: {MODELO_FALLBACK}]" if modelo_usado == MODELO_FALLBACK else ""
             resultados.append({
                 "id": idx,
                 "identificacao": identificacao,
                 "arquivo": caminho.name,
                 "analise": analise,
+                "modelo_usado": modelo_usado,
                 "status": "sucesso",
                 "timestamp": datetime.now().isoformat(),
             })
-            print("OK")
+            print(f"OK {flag}")
 
         except Exception as e:
             resultados.append({
@@ -247,12 +283,12 @@ def main():
                 "arquivo": caminho.name,
                 "analise": "",
                 "erro": str(e),
+                "modelo_usado": "",
                 "status": "erro",
                 "timestamp": datetime.now().isoformat(),
             })
             print(f"ERRO: {e}")
 
-        # Checkpoint a cada 5 obras
         if idx % 5 == 0:
             cp = pasta_script / f"analise_obras_{timestamp_inicio}_parcial.json"
             with open(cp, "w", encoding="utf-8") as f:
@@ -262,7 +298,6 @@ def main():
         if idx < len(obras):
             time.sleep(PAUSA_ENTRE_REQUISICOES)
 
-    # Salvar resultados finais
     print("\n" + "=" * 60)
     saida_json = pasta_script / f"analise_obras_{timestamp_inicio}.json"
     saida_xlsx = pasta_script / f"analise_obras_{timestamp_inicio}.xlsx"
@@ -271,9 +306,10 @@ def main():
     salvar_excel(resultados, str(saida_xlsx))
 
     sucessos = sum(1 for r in resultados if r["status"] == "sucesso")
+    fallbacks = sum(1 for r in resultados if r.get("modelo_usado") == MODELO_FALLBACK)
     print(f"\nRESUMO: {sucessos}/{len(resultados)} obras processadas com sucesso")
+    print(f"         {fallbacks} obras resolvidas pelo fallback ({MODELO_FALLBACK})")
     print(f"Arquivos salvos em: {pasta_script}")
-    input("\nPressione Enter para fechar...")
 
 
 if __name__ == "__main__":
