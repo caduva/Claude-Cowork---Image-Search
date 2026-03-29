@@ -43,14 +43,9 @@ MODELO_PRIMARIO = "gemini-3.1-pro-preview"
 MODELO_FALLBACK = "gemini-3-flash-preview"
 
 PROMPT_PADRAO = (
-    "Role: You are an art historian providing a factual analysis. "
-    "Task: Provide a thematic interpretation and factual overview of the attached artwork {identificacao}. "
-    "Constraints: "
-    "No bold or italics: Do not use ** for bold or * and _ for italics. Numbered lists, indentation, and line breaks are allowed and encouraged to organize the analysis. "
-    "No Attributions: Do not mention \"critics,\" \"reviewers,\" \"art writers,\" or \"sources\" unless the source is the artist themselves. State the interpretations as direct facts. "
-    "No Intro/Outro: Start immediately with the analysis. Do not include phrases like \"Based on my research\" or \"Here is the interpretation.\" "
-    "Tone: Direct, academic, and objective. "
-    "If you can't find the references for the work online, don't try to guess or make your own interpretation; simply report that you couldn't find them."
+    "Please find interpretations of this artwork on the internet: {identificacao}. "
+    "If you can't find the references for the work online, don't try to guess or make "
+    "your own interpretation; simply report that you couldn't find them."
 )
 
 # Frases que indicam que o modelo não encontrou referências
@@ -159,10 +154,10 @@ def analisar_obra(client, caminho_imagem, identificacao):
     if nao_encontrou_referencias(texto):
         time.sleep(PAUSA_ENTRE_REQUISICOES)
         texto_fallback = chamar_modelo(client, caminho_imagem, identificacao, MODELO_FALLBACK)
-        if not nao_encontrou_referencias(texto_fallback):
-            return texto_fallback, MODELO_FALLBACK
-        # Ambos não encontraram — retorna o do primário
-        return texto, MODELO_PRIMARIO
+        # Sempre usa o Flash quando o Pro não encontrou:
+        # - Se Flash encontrou → melhor resultado
+        # - Se Flash também não encontrou → resposta honesta, sem alucinação híbrida do Pro
+        return texto_fallback, MODELO_FALLBACK
 
     return texto, MODELO_PRIMARIO
 
