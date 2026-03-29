@@ -45,7 +45,9 @@ MODELO_FALLBACK = "gemini-3-flash-preview"
 PROMPT_PADRAO = (
     "Please find interpretations of this artwork on the internet: {identificacao}. "
     "If you can't find the references for the work online, don't try to guess or make "
-    "your own interpretation; simply report that you couldn't find them."
+    "your own interpretation; simply report that you couldn't find them. "
+    "Formatting: Do not use bold or italics (no ** or * or _ symbols). "
+    "Numbered lists, indentation, and paragraph breaks are allowed."
 )
 
 # Frases que indicam que o modelo não encontrou referências
