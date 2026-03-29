@@ -45,7 +45,7 @@ PASTA_IMAGENS = r"C:\Users\ctucunduva\fontes fuse\images\Additional artworks for
 
 EXTENSOES = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".PNG", ".JPEG"]
 
-MODELO_PRIMARIO = "gemini-3.1-pro-preview"
+MODELO_PRIMARIO = "gemini-3-flash-preview"
 MODELO_FALLBACK = "gemini-3-flash-preview"
 
 PROMPT_PADRAO = (
@@ -269,9 +269,12 @@ def main():
         cp_mais_recente = checkpoints[0]
         with open(cp_mais_recente, encoding="utf-8") as f:
             resultados = json.load(f)
-        ja_processados = {r["identificacao"] for r in resultados}
+        # Só pula obras com sucesso — reprocessa erros
+        ja_processados = {r["identificacao"] for r in resultados if r.get("status") == "sucesso"}
+        # Remove erros do resultados para que sejam reprocessados e substituídos
+        resultados = [r for r in resultados if r.get("status") == "sucesso"]
         timestamp_inicio = cp_mais_recente.stem.replace("analise_obras_", "").replace("_parcial", "")
-        print(f"Retomando do checkpoint: {cp_mais_recente.name} ({len(resultados)} obras ja processadas)\n")
+        print(f"Retomando do checkpoint: {cp_mais_recente.name} ({len(resultados)} com sucesso, erros serao reprocessados)\n")
 
     for idx, (identificacao, caminho) in enumerate(obras, 1):
         if identificacao in ja_processados:
