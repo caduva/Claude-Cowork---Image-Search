@@ -24,10 +24,16 @@ ESTRATÉGIA DE MODELOS:
 
 import os
 import re
+import sys
 import json
 import time
 from pathlib import Path
 from datetime import datetime
+
+# Força UTF-8 no terminal Windows para evitar UnicodeEncodeError
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # ============================================================
 #  CONFIG — EDITE AQUI
@@ -35,7 +41,7 @@ from datetime import datetime
 
 API_KEY = os.environ.get("API_KEY_GEMINI_FUSE", "SUA_API_KEY_AQUI")
 
-PASTA_IMAGENS = r"C:\Users\ctucunduva\fontes fuse\Artworks - atual 10_03_2026"
+PASTA_IMAGENS = r"C:\Users\ctucunduva\fontes fuse\images\Additional artworks for Beta 2 (batch 2)"
 
 EXTENSOES = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".PNG", ".JPEG"]
 
@@ -252,11 +258,24 @@ def main():
     print(f"Modelo fallback:  {MODELO_FALLBACK}\n")
 
     client = configurar_gemini()
-    resultados = []
-    timestamp_inicio = datetime.now().strftime("%Y%m%d_%H%M%S")
     pasta_script = Path(__file__).parent
 
+    # Retoma do checkpoint mais recente, se existir
+    resultados = []
+    ja_processados = set()
+    checkpoints = sorted(pasta_script.glob("analise_obras_*_parcial.json"), reverse=True)
+    timestamp_inicio = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if checkpoints:
+        cp_mais_recente = checkpoints[0]
+        with open(cp_mais_recente, encoding="utf-8") as f:
+            resultados = json.load(f)
+        ja_processados = {r["identificacao"] for r in resultados}
+        timestamp_inicio = cp_mais_recente.stem.replace("analise_obras_", "").replace("_parcial", "")
+        print(f"Retomando do checkpoint: {cp_mais_recente.name} ({len(resultados)} obras ja processadas)\n")
+
     for idx, (identificacao, caminho) in enumerate(obras, 1):
+        if identificacao in ja_processados:
+            continue
         print(f"[{idx}/{len(obras)}] {identificacao[:70]}...", end=" ", flush=True)
 
         try:
