@@ -1,0 +1,9 @@
+# Resultados intermediários e parciais
+*_parcial.json
+analise_obras_2026031*.json
+analise_obras_2026031*.xlsx
+analise_obras_20260329_093102.*
+analise_obras_20260329_102009.*
+
+# Backups de erros
+errors bkp/
