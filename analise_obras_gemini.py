@@ -45,7 +45,7 @@ PASTA_IMAGENS = r"C:\Users\ctucunduva\fontes fuse\images\Additional artworks for
 
 EXTENSOES = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".PNG", ".JPEG"]
 
-MODELO_PRIMARIO = "gemini-3-flash-preview"
+MODELO_PRIMARIO = "gemini-3.1-pro-preview"
 MODELO_FALLBACK = "gemini-3-flash-preview"
 
 PROMPT_PADRAO = (
