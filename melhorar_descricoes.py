@@ -11,7 +11,7 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.styles import Alignment
 
-API_KEY_GROQ   = "REMOVED"
+API_KEY_GROQ   = os.environ.get("API_KEY_GROQ")
 PASTA_OUTPUT   = Path(r"C:\Users\ctucunduva\fontes fuse\Claude Cowork - Image Search\Output Gemini Description")
 MODELO         = "llama-3.1-8b-instant"
 CHECKPOINT_DIR = Path(r"C:\Users\ctucunduva\fontes fuse\Claude Cowork - Image Search")
