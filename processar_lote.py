@@ -7,7 +7,8 @@ if sys.stdout.encoding != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 API_KEY      = os.environ.get("API_KEY_GEMINI_FUSE")
-PASTA_LOTE   = r"C:\Users\ctucunduva\fontes fuse\images\Artworks Beta 1"
+PASTA_LOTE   = r"C:\Users\ctucunduva\fontes fuse\images\Additional artworks for Beta 2 (batch 3)"
+LIMITE_DIARIO = 9999  # sem limite
 PASTA_SCRIPT = r"C:\Users\ctucunduva\fontes fuse\Claude Cowork - Image Search"
 MODELO_FLASH = "gemini-3-flash-preview"
 EXTENSOES    = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".JPG", ".PNG", ".JPEG"]
@@ -63,7 +64,7 @@ for jpath in jsons:
 
 # --- checkpoint do lote atual (retoma de onde parou) ---
 checkpoint_lote = {}
-checkpoints = sorted(Path(PASTA_SCRIPT).glob("beta1_*_parcial.json"), reverse=True)
+checkpoints = sorted(Path(PASTA_SCRIPT).glob("batch3_*_parcial.json"), reverse=True)
 if checkpoints:
     with open(checkpoints[0], encoding="utf-8") as f:
         cp_data = json.load(f)
@@ -75,7 +76,7 @@ if checkpoints:
 reuso = {k: historico[k] for k in grupos if k in historico and k not in checkpoint_lote}
 novos = [(k, grupos[k]) for k in grupos if k not in historico and k not in checkpoint_lote]
 
-print(f"Beta 1: {len(grupos)} obras unicas")
+print(f"Batch 3: {len(grupos)} obras unicas")
 print(f"  Reuso do historico: {len(reuso)}")
 print(f"  Novas (Gemini):     {len(novos)}")
 print(f"  Modelo:             {MODELO_FLASH}\n")
@@ -105,7 +106,7 @@ def chamar(identificacao, caminho, modelo, timeout=120):
 # --- monta resultados ---
 # Usa timestamp do checkpoint se existir, para sobrescrever o mesmo arquivo
 if checkpoints:
-    timestamp = checkpoints[0].stem.replace("beta1_", "").replace("_parcial", "")
+    timestamp = checkpoints[0].stem.replace("batch3_", "").replace("_parcial", "")
 else:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 pasta_script = Path(PASTA_SCRIPT)
@@ -130,12 +131,17 @@ for chave, r in reuso.items():
     print(f"[{idx}/{len(grupos)}] {chave[:65]}... REUSO ({r.get('_fonte_json', '')})")
 
 # 2) novas
+novas_processadas = 0
 for chave, caminho in novos:
+    if novas_processadas >= LIMITE_DIARIO:
+        print(f"\n[LIMITE DIARIO ATINGIDO: {LIMITE_DIARIO} obras novas. Retome amanhã apos 21h Brasilia.]\n")
+        break
     idx += 1
     print(f"[{idx}/{len(grupos)}] {chave[:65]}...", end=" ", flush=True)
     try:
         texto = chamar(chave, str(caminho), MODELO_FLASH)
         print("OK")
+        novas_processadas += 1
         resultados.append({
             "id": idx, "identificacao": chave, "arquivo": caminho.name,
             "analise": texto, "modelo_usado": MODELO_FLASH, "status": "sucesso",
@@ -154,7 +160,7 @@ for chave, caminho in novos:
         })
 
     if idx % 5 == 0:
-        cp = pasta_script / f"beta1_{timestamp}_parcial.json"
+        cp = pasta_script / f"batch3_{timestamp}_parcial.json"
         with open(cp, "w", encoding="utf-8") as f:
             json.dump(resultados, f, ensure_ascii=False, indent=2)
         print(f"  >> Checkpoint ({idx} obras)")
@@ -162,7 +168,7 @@ for chave, caminho in novos:
 
 # --- salva JSON ---
 print("\n" + "=" * 60)
-saida_json = pasta_script / f"beta1_{timestamp}.json"
+saida_json = pasta_script / f"batch3_{timestamp}.json"
 with open(saida_json, "w", encoding="utf-8") as f:
     json.dump(resultados, f, ensure_ascii=False, indent=2)
 print(f"JSON: {saida_json}")
@@ -174,7 +180,7 @@ from openpyxl.utils import get_column_letter
 
 wb = openpyxl.Workbook()
 ws = wb.active
-ws.title = "Beta 1"
+ws.title = "Batch 3"
 cab = ["#", "Obra", "Arquivo", "Analise", "Modelo", "Status", "Timestamp", "Fonte", "Data Fonte", "JSON Origem", "Arquivos Agrupados (nao analisados)"]
 hf    = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
 hfont = Font(bold=True, color="FFFFFF", size=11)
@@ -236,7 +242,7 @@ for row in range(2, len(linhas_xlsx) + 2):
     ws.row_dimensions[row].height = 120
 ws.freeze_panes = "A2"
 
-saida_xlsx = pasta_script / f"beta1_{timestamp}.xlsx"
+saida_xlsx = pasta_script / f"batch3_{timestamp}.xlsx"
 wb.save(saida_xlsx)
 print(f"Excel: {saida_xlsx}")
 
