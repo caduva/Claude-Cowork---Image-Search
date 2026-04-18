@@ -7,3 +7,9 @@ analise_obras_20260329_102009.*
 
 # Backups de erros
 errors bkp/
+
+# Backups antigos de output
+out bkp/
+
+# Cache Python
+__pycache__/
