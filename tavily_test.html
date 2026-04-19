@@ -41,35 +41,6 @@
       font-family: 'Courier New', monospace;
     }
 
-    .api-key-row {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 28px;
-      align-items: center;
-    }
-
-    .api-key-row label {
-      font-size: 12px;
-      color: #666;
-      font-family: monospace;
-      white-space: nowrap;
-    }
-
-    .api-key-row input {
-      flex: 1;
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      color: #888;
-      font-family: monospace;
-      font-size: 12px;
-      padding: 8px 12px;
-      border-radius: 4px;
-      outline: none;
-    }
-
-    .api-key-row input:focus {
-      border-color: #444;
-    }
 
     .search-box {
       margin-bottom: 12px;
@@ -309,11 +280,6 @@
     <p>fallback search test — what happens when the proprietary base has no match</p>
   </header>
 
-  <div class="api-key-row">
-    <label>TAVILY_API_KEY</label>
-    <input type="password" id="apiKey" placeholder="tvly-..." autocomplete="off" />
-  </div>
-
   <div class="search-box">
     <textarea
       id="userInput"
@@ -377,18 +343,9 @@
     queryPreview.textContent = q || "—";
   });
 
-  const CONFIG_KEY = (window.FUSE_CONFIG && window.FUSE_CONFIG.tavilyApiKey) || "";
+  const apiKey = (window.FUSE_CONFIG && window.FUSE_CONFIG.tavilyApiKey) || "";
 
-  // Persist API key in localStorage, falling back to config.js value
-  const storedKey = localStorage.getItem("tavily_key") || CONFIG_KEY;
-  document.getElementById("apiKey").value = storedKey;
-
-  document.getElementById("apiKey").addEventListener("change", e => {
-    localStorage.setItem("tavily_key", e.target.value);
-  });
-
-  async function search() {
-    const apiKey = document.getElementById("apiKey").value.trim();
+async function search() {
     const raw = userInput.value.trim();
     const depth = document.getElementById("depth").value;
     const maxResults = parseInt(document.getElementById("maxResults").value);
@@ -396,7 +353,7 @@
     const status = document.getElementById("status");
     const resultsEl = document.getElementById("results");
 
-    if (!apiKey) { setStatus("insira a API key do Tavily", "error"); return; }
+    if (!apiKey) { setStatus("erro: config.js não carregou a API key", "error"); return; }
     if (!raw) { setStatus("escreva algo para pesquisar", "error"); return; }
 
     const query = buildQuery(raw);
