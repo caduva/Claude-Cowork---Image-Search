@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fuse · Tavily Search Test</title>
+  <script src="config.js" onerror="console.warn('config.js not found')"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', serif;
+      background: #0f0f0f;
+      color: #e8e0d5;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 40px;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 24px;
+    }
+
+    header h1 {
+      font-size: 22px;
+      font-weight: normal;
+      letter-spacing: 0.08em;
+      color: #c8b89a;
+    }
+
+    header p {
+      margin-top: 8px;
+      font-size: 13px;
+      color: #666;
+      font-family: 'Courier New', monospace;
+    }
+
+    .api-key-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 28px;
+      align-items: center;
+    }
+
+    .api-key-row label {
+      font-size: 12px;
+      color: #666;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    .api-key-row input {
+      flex: 1;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #888;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      outline: none;
+    }
+
+    .api-key-row input:focus {
+      border-color: #444;
+    }
+
+    .search-box {
+      margin-bottom: 12px;
+    }
+
+    textarea {
+      width: 100%;
+      background: #161616;
+      border: 1px solid #2a2a2a;
+      color: #e8e0d5;
+      font-family: 'Georgia', serif;
+      font-size: 15px;
+      line-height: 1.7;
+      padding: 18px 20px;
+      border-radius: 6px;
+      resize: vertical;
+      min-height: 110px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus {
+      border-color: #555;
+    }
+
+    textarea::placeholder {
+      color: #444;
+      font-style: italic;
+    }
+
+    .options-row {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .options-row label {
+      font-size: 12px;
+      color: #555;
+      font-family: monospace;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .options-row select {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      color: #888;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .options-row input[type="checkbox"] {
+      accent-color: #c8b89a;
+    }
+
+    .prompt-preview {
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    .prompt-preview span.label {
+      color: #444;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .prompt-preview span.value {
+      color: #6a6a7a;
+    }
+
+    button#searchBtn {
+      background: #c8b89a;
+      color: #0f0f0f;
+      border: none;
+      padding: 12px 32px;
+      font-family: 'Georgia', serif;
+      font-size: 14px;
+      letter-spacing: 0.05em;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    button#searchBtn:hover { background: #d4c5aa; }
+    button#searchBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    #status {
+      margin-top: 20px;
+      font-size: 12px;
+      font-family: monospace;
+      color: #555;
+      min-height: 16px;
+    }
+
+    #status.error { color: #c05050; }
+    #status.loading { color: #7a8a6a; }
+
+    .results {
+      margin-top: 36px;
+    }
+
+    .answer-block {
+      background: #141414;
+      border-left: 3px solid #c8b89a;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .answer-block .answer-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: #c8b89a;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-family: monospace;
+    }
+
+    .answer-block p {
+      font-size: 15px;
+      line-height: 1.75;
+      color: #d8d0c5;
+    }
+
+    .results-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .result-card {
+      background: #141414;
+      border: 1px solid #222;
+      border-radius: 6px;
+      padding: 18px 20px;
+      transition: border-color 0.2s;
+    }
+
+    .result-card:hover { border-color: #3a3a3a; }
+
+    .result-card .card-index {
+      font-size: 10px;
+      font-family: monospace;
+      color: #444;
+      margin-bottom: 6px;
+    }
+
+    .result-card .card-title {
+      font-size: 15px;
+      color: #c8b89a;
+      margin-bottom: 8px;
+      text-decoration: none;
+      display: block;
+      line-height: 1.4;
+    }
+
+    .result-card .card-title:hover { color: #d8c8aa; text-decoration: underline; }
+
+    .result-card .card-url {
+      font-size: 11px;
+      font-family: monospace;
+      color: #444;
+      margin-bottom: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-card .card-content {
+      font-size: 13px;
+      line-height: 1.7;
+      color: #999;
+    }
+
+    .result-card .card-score {
+      margin-top: 10px;
+      font-size: 11px;
+      font-family: monospace;
+      color: #444;
+    }
+
+    .raw-toggle {
+      margin-top: 28px;
+      border-top: 1px solid #1e1e1e;
+      padding-top: 16px;
+    }
+
+    .raw-toggle button {
+      background: none;
+      border: 1px solid #2a2a2a;
+      color: #555;
+      font-family: monospace;
+      font-size: 11px;
+      padding: 5px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .raw-toggle button:hover { border-color: #444; color: #777; }
+
+    pre#rawJson {
+      display: none;
+      margin-top: 14px;
+      background: #0d0d0d;
+      border: 1px solid #1e1e1e;
+      padding: 16px;
+      font-family: monospace;
+      font-size: 11px;
+      color: #555;
+      overflow-x: auto;
+      border-radius: 4px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>Fuse · Tavily Search Lab</h1>
+    <p>fallback search test — what happens when the proprietary base has no match</p>
+  </header>
+
+  <div class="api-key-row">
+    <label>TAVILY_API_KEY</label>
+    <input type="password" id="apiKey" placeholder="tvly-..." autocomplete="off" />
+  </div>
+
+  <div class="search-box">
+    <textarea
+      id="userInput"
+      placeholder="Escreva um tema, obra, livro, artista ou ideia que te interessa..."
+    ></textarea>
+  </div>
+
+  <div class="options-row">
+    <label>
+      profundidade:
+      <select id="depth">
+        <option value="advanced">advanced</option>
+        <option value="basic">basic</option>
+      </select>
+    </label>
+    <label>
+      resultados:
+      <select id="maxResults">
+        <option value="5">5</option>
+        <option value="7" selected>7</option>
+        <option value="10">10</option>
+      </select>
+    </label>
+    <label>
+      <input type="checkbox" id="includeAnswer" checked />
+      incluir síntese (include_answer)
+    </label>
+  </div>
+
+  <div class="prompt-preview">
+    <span class="label">// query que será enviada ao Tavily:</span>
+    <span class="value" id="queryPreview">—</span>
+  </div>
+
+  <button id="searchBtn" onclick="search()">Pesquisar</button>
+
+  <div id="status"></div>
+  <div id="results" class="results"></div>
+
+</div>
+
+<script>
+  const FUSE_QUERY_SUFFIX = [
+    "filosofia significado existência",
+    "literatura poesia arte visual",
+    "condição humana reflexão",
+    "pensadores ensaio cultura"
+  ].join(" ");
+
+  const userInput = document.getElementById("userInput");
+  const queryPreview = document.getElementById("queryPreview");
+
+  function buildQuery(raw) {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+    return `${trimmed} — ${FUSE_QUERY_SUFFIX}`;
+  }
+
+  userInput.addEventListener("input", () => {
+    const q = buildQuery(userInput.value);
+    queryPreview.textContent = q || "—";
+  });
+
+  const CONFIG_KEY = (window.FUSE_CONFIG && window.FUSE_CONFIG.tavilyApiKey) || "";
+
+  // Persist API key in localStorage, falling back to config.js value
+  const storedKey = localStorage.getItem("tavily_key") || CONFIG_KEY;
+  document.getElementById("apiKey").value = storedKey;
+
+  document.getElementById("apiKey").addEventListener("change", e => {
+    localStorage.setItem("tavily_key", e.target.value);
+  });
+
+  async function search() {
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const raw = userInput.value.trim();
+    const depth = document.getElementById("depth").value;
+    const maxResults = parseInt(document.getElementById("maxResults").value);
+    const includeAnswer = document.getElementById("includeAnswer").checked;
+    const status = document.getElementById("status");
+    const resultsEl = document.getElementById("results");
+
+    if (!apiKey) { setStatus("insira a API key do Tavily", "error"); return; }
+    if (!raw) { setStatus("escreva algo para pesquisar", "error"); return; }
+
+    const query = buildQuery(raw);
+    queryPreview.textContent = query;
+
+    document.getElementById("searchBtn").disabled = true;
+    setStatus("buscando...", "loading");
+    resultsEl.innerHTML = "";
+
+    try {
+      const res = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: query,
+          search_depth: depth,
+          max_results: maxResults,
+          include_answer: includeAnswer,
+          include_raw_content: false,
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || err.message || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      setStatus(`${data.results?.length || 0} resultados — query_time: ${data.response_time?.toFixed(2) || "?"}s`, "");
+      renderResults(data);
+    } catch (e) {
+      setStatus("erro: " + e.message, "error");
+    } finally {
+      document.getElementById("searchBtn").disabled = false;
+    }
+  }
+
+  function renderResults(data) {
+    const el = document.getElementById("results");
+    let html = "";
+
+    if (data.answer) {
+      html += `
+        <div class="answer-block">
+          <div class="answer-label">síntese gerada pelo Tavily</div>
+          <p>${escHtml(data.answer)}</p>
+        </div>`;
+    }
+
+    if (data.results?.length) {
+      html += `<div class="results-grid">`;
+      data.results.forEach((r, i) => {
+        const score = r.score != null ? `relevância: ${(r.score * 100).toFixed(0)}%` : "";
+        html += `
+          <div class="result-card">
+            <div class="card-index">#${i + 1}</div>
+            <a class="card-title" href="${escHtml(r.url)}" target="_blank" rel="noopener">${escHtml(r.title || r.url)}</a>
+            <div class="card-url">${escHtml(r.url)}</div>
+            <div class="card-content">${escHtml(r.content || "")}</div>
+            ${score ? `<div class="card-score">${score}</div>` : ""}
+          </div>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `
+      <div class="raw-toggle">
+        <button onclick="toggleRaw()">ver JSON bruto</button>
+        <pre id="rawJson">${escHtml(JSON.stringify(data, null, 2))}</pre>
+      </div>`;
+
+    el.innerHTML = html;
+  }
+
+  function toggleRaw() {
+    const pre = document.getElementById("rawJson");
+    pre.style.display = pre.style.display === "block" ? "none" : "block";
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById("status");
+    el.textContent = msg;
+    el.className = type || "";
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  // Allow Cmd/Ctrl+Enter to search
+  userInput.addEventListener("keydown", e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") search();
+  });
+</script>
+</body>
+</html>

@@ -1,3 +1,6 @@
+# API config (chave injetada via GitHub Secret no deploy)
+config.js
+
 # Resultados intermediários e parciais
 *_parcial.json
 analise_obras_2026031*.json
