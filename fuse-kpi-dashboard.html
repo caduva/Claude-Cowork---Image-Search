@@ -1,0 +1,645 @@
+<title>Fuse — KPI Dashboard: Arquitetura & Escopo</title>
+<style>
+  :root {
+    --ink: #1c1e24;
+    --ink-soft: #4a4e58;
+    --paper: #eef0ef;
+    --paper-raised: #ffffff;
+    --line: rgba(28, 30, 36, 0.13);
+    --line-soft: rgba(28, 30, 36, 0.07);
+    --accent: #3f6e63;
+    --accent-soft: rgba(63, 110, 99, 0.12);
+    --accent-ink: #2c4f47;
+    --flag: #a84a2a;
+    --flag-soft: rgba(168, 74, 42, 0.10);
+    --gold: #91742f;
+    --gold-soft: rgba(145, 116, 47, 0.12);
+    --info: #3d5a80;
+    --info-soft: rgba(61, 90, 128, 0.10);
+    --shadow: 0 1px 2px rgba(28,30,36,0.04), 0 8px 24px rgba(28,30,36,0.05);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e9e9e4;
+      --ink-soft: #a9ada8;
+      --paper: #16181a;
+      --paper-raised: #1e2123;
+      --line: rgba(233, 233, 228, 0.14);
+      --line-soft: rgba(233, 233, 228, 0.07);
+      --accent: #7cb3a4;
+      --accent-soft: rgba(124, 179, 164, 0.14);
+      --accent-ink: #a9d3c6;
+      --flag: #d98a67;
+      --flag-soft: rgba(217, 138, 103, 0.14);
+      --gold: #cbab5f;
+      --gold-soft: rgba(203, 171, 95, 0.14);
+      --info: #8fb0d9;
+      --info-soft: rgba(143, 176, 217, 0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e9e9e4; --ink-soft: #a9ada8; --paper: #16181a; --paper-raised: #1e2123;
+    --line: rgba(233, 233, 228, 0.14); --line-soft: rgba(233, 233, 228, 0.07);
+    --accent: #7cb3a4; --accent-soft: rgba(124, 179, 164, 0.14); --accent-ink: #a9d3c6;
+    --flag: #d98a67; --flag-soft: rgba(217, 138, 103, 0.14);
+    --gold: #cbab5f; --gold-soft: rgba(203, 171, 95, 0.14);
+    --info: #8fb0d9; --info-soft: rgba(143, 176, 217, 0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #1c1e24; --ink-soft: #4a4e58; --paper: #eef0ef; --paper-raised: #ffffff;
+    --line: rgba(28, 30, 36, 0.13); --line-soft: rgba(28, 30, 36, 0.07);
+    --accent: #3f6e63; --accent-soft: rgba(63, 110, 99, 0.12); --accent-ink: #2c4f47;
+    --flag: #a84a2a; --flag-soft: rgba(168, 74, 42, 0.10);
+    --gold: #91742f; --gold-soft: rgba(145, 116, 47, 0.12);
+    --info: #3d5a80; --info-soft: rgba(61, 90, 128, 0.10);
+    --shadow: 0 1px 2px rgba(28,30,36,0.04), 0 8px 24px rgba(28,30,36,0.05);
+  }
+
+  * { box-sizing: border-box; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  html, body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent-ink); text-decoration-color: var(--line); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible, .navlink:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px;
+  }
+
+  h1, h2, h3, h4 { font-family: var(--serif); font-weight: 600; text-wrap: balance; color: var(--ink); }
+  h1 { font-size: clamp(1.9rem, 1.5rem + 1.6vw, 2.6rem); line-height: 1.15; margin: 0 0 0.3em; }
+  h2 { font-size: 1.5rem; line-height: 1.25; margin: 0 0 0.5em; letter-spacing: -0.01em; }
+  h3 { font-size: 1.12rem; margin: 1.6em 0 0.5em; color: var(--accent-ink); }
+  h4 { font-size: 0.98rem; margin: 1.2em 0 0.4em; }
+
+  p { margin: 0 0 1em; color: var(--ink-soft); max-width: 66ch; }
+  strong { color: var(--ink); font-weight: 600; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 0.09em; color: var(--accent-ink); display: block; margin-bottom: 0.6em;
+  }
+
+  /* ---------- Shell ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: 1160px; margin: 0 auto; padding: 0.7rem 1.5rem;
+    display: flex; align-items: center; gap: 1.4rem; overflow-x: auto;
+  }
+  .brand { font-family: var(--serif); font-weight: 600; font-size: 0.95rem; white-space: nowrap; color: var(--ink); }
+  .navlinks { display: flex; gap: 1.1rem; white-space: nowrap; }
+  .navlink { font-size: 0.82rem; color: var(--ink-soft); text-decoration: none; padding: 0.2rem 0; border-bottom: 1px solid transparent; }
+  .navlink:hover { color: var(--ink); border-bottom-color: var(--line); }
+
+  header.hero {
+    max-width: 900px; margin: 0 auto; padding: 3.4rem 1.5rem 2rem;
+  }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; margin-top: 1.1rem;
+    font-family: var(--mono); font-size: 0.78rem; color: var(--ink-soft);
+  }
+  .meta-row b { color: var(--ink); font-weight: 600; }
+
+  main { max-width: 1160px; margin: 0 auto; padding: 0 1.5rem 5rem; }
+  .narrow { max-width: 880px; }
+  section { padding-top: 3.2rem; scroll-margin-top: 4rem; }
+  section + section { border-top: 1px solid var(--line-soft); }
+
+  ul, ol { padding-left: 1.3em; color: var(--ink-soft); }
+  li { margin-bottom: 0.45em; max-width: 68ch; }
+  li::marker { color: var(--accent); }
+
+  /* ---------- Cards / badges ---------- */
+  .badge {
+    display: inline-flex; align-items: center; gap: 0.4em;
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 0.22em 0.6em; border-radius: 3px; border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge.ok { background: var(--accent-soft); color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .badge.gap { background: var(--flag-soft); color: var(--flag); border-color: color-mix(in srgb, var(--flag) 35%, transparent); }
+  .badge.rec { background: var(--gold-soft); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
+  .badge.partial { background: var(--gold-soft); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
+  .badge.vendor { background: var(--info-soft); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.78rem; font-weight: 600;
+    padding: 0.28em 0.7em; border-radius: 100px; white-space: nowrap; border: 1px solid transparent;
+  }
+  .pill::before { content: ""; width: 0.5em; height: 0.5em; border-radius: 50%; background: currentColor; flex: none; }
+  .pill.ready { background: var(--accent-soft); color: var(--accent-ink); border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+  .pill.building { background: var(--gold-soft); color: var(--gold); border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
+  .pill.vendor { background: var(--info-soft); color: var(--info); border-color: color-mix(in srgb, var(--info) 40%, transparent); }
+
+  .callout {
+    background: var(--paper-raised); border: 1px solid var(--line); border-left: 3px solid var(--flag);
+    border-radius: 6px; padding: 1rem 1.2rem; margin: 1.3em 0; box-shadow: var(--shadow);
+  }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.accent { border-left-color: var(--accent); }
+  .callout.gold { border-left-color: var(--gold); }
+
+  .summary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    margin: 1.6em 0;
+  }
+  .summary-cell { background: var(--paper-raised); padding: 1.1rem 1.2rem; }
+  .summary-cell .num { font-family: var(--serif); font-size: 1.9rem; color: var(--accent-ink); font-variant-numeric: tabular-nums; }
+  .summary-cell .lbl { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.2em; }
+
+  /* ---------- Tables ---------- */
+  .tablewrap { overflow-x: auto; margin: 1.4em 0; border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; background: var(--paper-raised); font-size: 0.88rem; }
+  caption { text-align: left; padding: 0.7rem 1rem 0; font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+  thead th {
+    text-align: left; font-family: var(--sans); font-weight: 600; font-size: 0.76rem;
+    text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-soft);
+    padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+  tbody td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--accent-soft); }
+  td.num, th.num { font-variant-numeric: tabular-nums; font-family: var(--mono); }
+  td strong, td.name { color: var(--ink); font-weight: 600; }
+  td.time { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); font-weight: 600; }
+  code, .kbd { font-family: var(--mono); font-size: 0.85em; background: var(--accent-soft); color: var(--accent-ink); padding: 0.1em 0.4em; border-radius: 3px; }
+  .none { color: color-mix(in srgb, var(--ink-soft) 55%, transparent); font-style: italic; }
+
+  /* ---------- Diagrams ---------- */
+  .diagramwrap { overflow-x: auto; background: var(--paper-raised); border: 1px solid var(--line); border-radius: 8px; padding: 1.2rem; margin: 1.3em 0; box-shadow: var(--shadow); }
+  pre.mermaid { margin: 0; min-width: 480px; }
+
+  /* ---------- Option cards ---------- */
+  .option {
+    border: 1px solid var(--line); border-radius: 10px; padding: 1.6rem 1.6rem 1.4rem;
+    margin: 1.6em 0; background: var(--paper-raised); box-shadow: var(--shadow);
+  }
+  .option.chosen { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+  .option-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .option-head h3 { margin: 0; color: var(--ink); font-size: 1.2rem; }
+  .proscons { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-top: 1rem; }
+  @media (max-width: 620px) { .proscons { grid-template-columns: 1fr; } }
+  .proscons h4 { margin-top: 0; font-family: var(--mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; }
+  .proscons.pros h4 { color: var(--accent-ink); }
+  .proscons.cons h4 { color: var(--flag); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 1.4rem; margin: 1rem 0 0.4rem; font-size: 0.86rem; color: var(--ink-soft); }
+  .legend span { display: inline-flex; align-items: center; gap: 0.5em; }
+
+  footer { max-width: 1160px; margin: 0 auto; padding: 2rem 1.5rem 4rem; color: var(--ink-soft); font-size: 0.82rem; }
+</style>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="brand">Fuse · KPI Dashboard</span>
+    <nav class="navlinks">
+      <a class="navlink" href="#resumo">Resumo</a>
+      <a class="navlink" href="#kpis">KPIs</a>
+      <a class="navlink" href="#escopo">Escopo dev</a>
+      <a class="navlink" href="#arquitetura">Arquitetura</a>
+      <a class="navlink" href="#cronograma">Cronograma</a>
+      <a class="navlink" href="#ferramentas">Build vs. buy</a>
+      <a class="navlink" href="#privacidade">Privacidade</a>
+      <a class="navlink" href="#pendencias">Pendências</a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero">
+  <span class="eyebrow">Nota técnica — verificada contra o código-fonte real</span>
+  <h1>Dashboard de KPIs da Fuse: 10 dos 15 prontos hoje, 4 em construção, 1 com a Muralis</h1>
+  <p style="max-width: 64ch; font-size: 1.05rem;">O banco de produção (MySQL, 22 tabelas) já registra a maior parte do que os 15 KPIs precisam, como subproduto de features que já existem no app.</p>
+  <div class="meta-row">
+    <span><b>Data</b> 02 ago 2026</span>
+    <span><b>Fonte</b> fuse-data/data-dictionary + código-fonte fuse-backend/fuse-frontend</span>
+    <span><b>Banco</b> MySQL, fuse_prod_db, 22 tabelas</span>
+    <span><b>Dev ativo</b> Muralis FSE-01_2026 (curadoria/feedback)</span>
+  </div>
+</header>
+
+<main>
+
+  <section id="resumo">
+    <span class="eyebrow">01 — Resumo executivo</span>
+    <h2>Panorama geral</h2>
+    <p class="narrow">O banco de produção (MySQL, 22 tabelas) é um schema de conteúdo/produto — <code>users</code>, <code>topics</code>, <code>vignettes</code>, <code>chat_messages</code>, <code>favorites</code>, <code>notifications</code> — que cresceu organicamente para suportar as features do app. Cruzando os 15 KPIs contra essas tabelas, a maioria já tem o dado que precisa, só que espalhado, sem uma modelagem dedicada a KPI.</p>
+    <div class="summary-grid">
+      <div class="summary-cell"><div class="num">10 / 15</div><div class="lbl">prontos — extraíveis agora, sem desenvolvimento novo</div></div>
+      <div class="summary-cell"><div class="num">4 / 15</div><div class="lbl">em construção — decidido, via captura própria no frontend</div></div>
+      <div class="summary-cell"><div class="num">1 / 15</div><div class="lbl">em desenvolvimento pela Muralis</div></div>
+    </div>
+    <ul class="narrow">
+      <li><strong>KPIs:</strong> os 15 mapeados para as tabelas reais do MySQL, com status verificado contra o código — ver <a href="#kpis">KPIs</a>.</li>
+      <li><strong>Escopo dos devs:</strong> a Muralis (FSE-01_2026) cobre o KPI 4. Os outros quatro que precisam de dado novo (7, 8, 11, 14) são auto-suficientes: resolvem com captura própria no frontend, sem depender de mais nenhum pedido de desenvolvimento — ver <a href="#escopo">Escopo dev</a>.</li>
+      <li><strong>Arquitetura:</strong> extração SQL direta do MySQL de produção como base, com uma captura própria unificada (múltiplos tipos de evento, uma tabela só) para o que realmente não existe — ver <a href="#arquitetura">Arquitetura</a>.</li>
+      <li><strong>Cronograma:</strong> o que precisa ser construído, onde mexe e quanto tempo leva — ver <a href="#cronograma">Cronograma</a>.</li>
+      <li><strong>Ferramenta de mercado vs. vibe code:</strong> nenhuma plataforma paga necessária — os quatro sinais que faltam são pequenos o suficiente para resolver com uma tabela própria — ver <a href="#ferramentas">Build vs. buy</a>.</li>
+    </ul>
+  </section>
+
+  <section id="kpis">
+    <span class="eyebrow">02 — Painel de KPIs</span>
+    <h2>Os 15 KPIs, um por um</h2>
+    <p class="narrow">Um detalhe de nomenclatura que vale ter em mente lendo a coluna "Onde vem o dado": a tabela <code>topics</code> do banco é uma taxonomia de só 7 categorias-raiz — o "tópico" que os KPIs descrevem (o que a pessoa abre, favorita, avalia) é na verdade a tabela <code>vignettes</code> (7.724 linhas), confirmado em <code>curation-events.service.ts</code>.</p>
+    <div class="legend">
+      <span><span class="pill ready">Pronto</span> extraível hoje</span>
+      <span><span class="pill building">Em construção</span> decidido, captura própria no frontend</span>
+      <span><span class="pill vendor">Fornecedor externo</span> depende da Muralis</span>
+    </div>
+    <div class="tablewrap">
+      <table style="min-width: 1040px;">
+        <thead>
+          <tr>
+            <th class="num">#</th>
+            <th>KPI</th>
+            <th>O que mede</th>
+            <th>Onde vem o dado</th>
+            <th>Situação</th>
+            <th>Próximo passo</th>
+            <th>Pendência</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">1</td>
+            <td class="name">Ranking de Uso</td>
+            <td>Quantas vezes e com que frequência cada pessoa usa a Fuse.</td>
+            <td><code>users</code> + <code>access_logs</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">2</td>
+            <td class="name">Abandono</td>
+            <td>Quando alguém faz uma pergunta na tela inicial e vai embora sem fazer mais nada.</td>
+            <td><code>chat_conversations</code>/<code>chat_messages</code> cruzado com <code>curation_events</code>, <code>favorites</code>, <code>philosophical_analyses</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Testar um comportamento do sistema em dev/staging, depois incluir na coleta.</td>
+            <td>Confirmação técnica simples, baixo risco — ver <a href="#pendencias">Pendências</a>.</td>
+          </tr>
+          <tr>
+            <td class="num">3</td>
+            <td class="name">Conteúdo do Chat</td>
+            <td>Todas as perguntas e respostas trocadas no chat.</td>
+            <td><code>chat_messages</code> + <code>chat_conversations</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">4</td>
+            <td class="name">Qualidade da Associação Imagem-Texto</td>
+            <td>A nota que a pessoa dá para dizer se a imagem combina com o texto do tópico.</td>
+            <td>nenhuma tabela existe hoje — em desenvolvimento pela Muralis (FSE-01)</td>
+            <td><span class="pill vendor">Fornecedor externo</span></td>
+            <td>Acompanhar a entrega e confirmar o formato do dado.</td>
+            <td>Aguardando a Muralis — ver <a href="#pendencias">Pendências</a>.</td>
+          </tr>
+          <tr>
+            <td class="num">5</td>
+            <td class="name">Interesses</td>
+            <td>Quais tópicos cada pessoa abriu para ler.</td>
+            <td><code>curation_events</code> (já logado desde jul/2026)</td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">6</td>
+            <td class="name">Tópicos Mais Favoritados</td>
+            <td>Quais tópicos são mais salvos como favoritos.</td>
+            <td><code>favorites</code> WHERE category='topic'</td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">7</td>
+            <td class="name">Profundidade de Navegação</td>
+            <td>Quanto a pessoa navega dentro de uma visita — indica exploração mais profunda.</td>
+            <td>nenhuma tabela existe — captura própria (evento <code>SCREEN_NAV</code>)</td>
+            <td><span class="pill building">Em construção</span></td>
+            <td>Implementar a captura no aplicativo — ver <a href="#arquitetura">Arquitetura</a>.</td>
+            <td class="none">Nenhuma — já decidido</td>
+          </tr>
+          <tr>
+            <td class="num">8</td>
+            <td class="name">Perfil de Curadoria</td>
+            <td>Quando a pessoa cria, organiza ou renomeia pastas de favoritos.</td>
+            <td><code>favorite_collections</code> + <code>favorites</code> + captura própria (evento <code>FOLDER_RENAMED</code>)</td>
+            <td><span class="pill building">Em construção</span></td>
+            <td>Criação e adição já prontas; falta implementar a captura da renomeação.</td>
+            <td class="none">Nenhuma — já decidido</td>
+          </tr>
+          <tr>
+            <td class="num">9</td>
+            <td class="name">Análise de Uploads</td>
+            <td>O conteúdo que as pessoas enviam (upload) para guardar como favorito.</td>
+            <td><code>favorite_uploads</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">10</td>
+            <td class="name">Qualidade do "Pensar Diferente"</td>
+            <td>Toda vez que a pessoa usa essa função, com a pergunta e a resposta.</td>
+            <td><code>philosophical_analyses</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">11</td>
+            <td class="name">Qualidade do Enrich</td>
+            <td>O motivo que a pessoa dá ao usar o Enrich e quantas sugestões ela salvou depois.</td>
+            <td><code>collection_provocations</code> + <code>favorites</code> + captura própria (evento <code>ENRICH_MOTIVATION</code>)</td>
+            <td><span class="pill building">Em construção</span></td>
+            <td>Sugestões salvas já prontas; falta implementar a captura do motivo digitado.</td>
+            <td class="none">Nenhuma — já decidido</td>
+          </tr>
+          <tr>
+            <td class="num">12</td>
+            <td class="name">Engajamento com Notificações</td>
+            <td>Quantas notificações foram enviadas e se a pessoa abriu.</td>
+            <td><code>notifications</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">13</td>
+            <td class="name">Velocidade de Curadoria</td>
+            <td>Com que frequência a pessoa salva um tópico como favorito, em vez de só ler e sair.</td>
+            <td><code>favorites</code> ÷ <code>curation_events</code></td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Incluir na primeira coleta de dados.</td>
+            <td class="none">Nenhuma</td>
+          </tr>
+          <tr>
+            <td class="num">14</td>
+            <td class="name">Tempo Ativo por Aparelho</td>
+            <td>Quanto tempo a pessoa realmente interage com o app (digitando, rolando, clicando), por tipo de aparelho.</td>
+            <td>captura própria (evento <code>ACTIVITY_HEARTBEAT</code>) — <code>sessions.metadata</code> não serve para isso, ver nota abaixo</td>
+            <td><span class="pill building">Em construção</span></td>
+            <td>Implementar a captura no aplicativo — ver <a href="#arquitetura">Arquitetura</a>.</td>
+            <td class="none">Nenhuma — já decidido</td>
+          </tr>
+          <tr>
+            <td class="num">15</td>
+            <td class="name">Retenção por Turma de Cadastro</td>
+            <td>Agrupa as pessoas pela semana em que se cadastraram e acompanha quantas continuam voltando semana após semana.</td>
+            <td><code>users.created_at</code> cruzado com tabelas de atividade</td>
+            <td><span class="pill ready">Pronto</span></td>
+            <td>Alinhar o critério de "pessoa ativa" e incluir na coleta.</td>
+            <td>Pequena decisão de critério, não é questão técnica.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout gold narrow">
+      <p><strong>KPI 14 — por que <code>sessions.metadata</code> não resolve o tempo ativo:</strong> conferi o código (<code>session.service.ts</code>) — <code>last_seen_at</code> só é atualizado quando a sessão é renovada (sliding TTL), no máximo uma vez a cada intervalo de renovação configurado, não a cada ação da pessoa. Não dá para medir tempo ativo a partir disso — é granularidade de sessão de autenticação, não de engajamento.</p>
+    </div>
+
+    <p class="narrow" style="margin-top: 1.2em;"><strong>Contagem final:</strong> 10 prontos hoje sem nenhum desenvolvimento novo (1, 2, 3, 5, 6, 9, 10, 12, 13, 15), 4 em construção via captura própria (7, 8, 11, 14), e 1 em desenvolvimento pela Muralis (4).</p>
+  </section>
+
+  <section id="escopo">
+    <span class="eyebrow">03 — Escopo dos desenvolvedores</span>
+    <h2>Decisão: nada além do que a Muralis já está construindo</h2>
+    <p class="narrow">A Muralis (FSE-01_2026) é o único desenvolvimento contratado, e cobre o KPI 4. Para os quatro KPIs que precisam de dado novo (7, 8, 11, 14), a decisão é <strong>não pedir nada a nenhum time de dev</strong>. Todos se resolvem com captura própria no frontend, seguindo o mesmo padrão: um evento pequeno, disparado no momento certo, gravado num endpoint e banco que você controla.</p>
+    <div class="diagramwrap">
+<pre class="mermaid">
+flowchart TD
+  A["Banco real fuse_prod_db<br/>22 tabelas, MySQL"] --> B{"Como cada KPI se resolve?"}
+  B -- "extracao direta, sem nada novo" --> C["1, 2, 3, 5, 6, 9, 10, 12, 13, 15"]
+  F["Proposta Muralis FSE-01<br/>CONTRATADA, em execucao"] -- "cobre" --> G["KPI 4"]
+  H["Captura propria no frontend<br/>4 tipos de evento, decidido"] -- "cobre" --> I["7, 8, 11, 14"]
+</pre>
+    </div>
+    <div class="callout accent narrow">
+      <p><strong>KPI 4</strong> está coberto pela Muralis. A avaliação deles é Ótima/Ok/Ruim com estado de remoção, chave por obra-tópico — diferente do desenho conceitual anterior (1/2/3 sem remoção, chave por imagem+tópico). Vale confirmar o mapeamento exato de campo quando a tabela deles aparecer no dicionário de dados — hoje ainda não aparece (última atualização documentada é de 01/07/2026, a proposta foi assinada em 07/07/2026).</p>
+    </div>
+
+    <h3>Os quatro que precisam de captura própria: nenhum precisa do time de dev</h3>
+    <ul class="narrow">
+      <li><strong>KPI 7 — Profundidade de Navegação:</strong> evento <code>SCREEN_NAV</code> a cada troca de rota no frontend.</li>
+      <li><strong>KPI 8 — Perfil de Curadoria, renomeação de pasta:</strong> <code>favorite_collections</code> só guarda o nome atual, sem log de mudança. Em vez de aproximar por snapshot, o frontend dispara um evento <code>FOLDER_RENAMED</code> no momento exato em que a pessoa renomeia — mesmo padrão do KPI 7, com timestamp exato em vez de aproximado.</li>
+      <li><strong>KPI 11 — Qualidade do Enrich, motivação:</strong> o texto (<code>interest</code>) existe só de passagem na chamada que o frontend faz pro backend, e nunca é salvo. O frontend manda esse texto também pro endpoint próprio, em paralelo à chamada normal, como evento <code>ENRICH_MOTIVATION</code>.</li>
+      <li><strong>KPI 14 — Tempo Ativo, o core do KPI:</strong> confirmei no código que <code>sessions.last_seen_at</code> só atualiza a cada renovação de sessão, não a cada ação da pessoa — não serve para medir tempo ativo. A solução: evento <code>ACTIVITY_HEARTBEAT</code> — o frontend detecta atividade real (teclado, scroll, clique) e manda um ping a cada ~30s enquanto a pessoa está ativa; tempo ativo = número de pings × intervalo. O mesmo evento carrega o tipo de dispositivo, detectado direto no navegador.</li>
+    </ul>
+    <p class="narrow"><strong>Resultado:</strong> o único ponto de contato necessário com um time de dev externo continua sendo a Muralis, e só para o KPI 4. Os quatro tipos de evento (<code>SCREEN_NAV</code>, <code>FOLDER_RENAMED</code>, <code>ENRICH_MOTIVATION</code>, <code>ACTIVITY_HEARTBEAT</code>) ficam todos numa única tabela própria, alimentada por pequenas mudanças no <code>fuse-frontend</code> — nenhuma delas passa pelo backend da Fuse.</p>
+  </section>
+
+  <section id="arquitetura">
+    <span class="eyebrow">04 — Opções de arquitetura</span>
+    <h2>Extração SQL do MySQL real como base, captura própria só para o que falta</h2>
+    <p class="narrow">Com 10 KPIs resolvidos direto do banco de produção, o projeto é principalmente um extrator, mais uma captura própria pequena e específica para os quatro sinais que realmente não existem (7, 8, 11, 14).</p>
+
+    <div class="option chosen">
+      <div class="option-head"><h3>Extração SQL direta do fuse_prod_db</h3><span class="badge rec">recomendada</span></div>
+      <p>Um extrator agendado lê as tabelas reais (<code>users</code>, <code>access_logs</code>, <code>chat_conversations</code>, <code>chat_messages</code>, <code>curation_events</code>, <code>favorites</code>, <code>favorite_collections</code>, <code>favorite_uploads</code>, <code>notifications</code>, <code>philosophical_analyses</code>, <code>collection_provocations</code>) e materializa views por KPI num banco próprio. Cobre 10 dos 15 KPIs por completo, sem pedir nada nem à Muralis nem a ninguém.</p>
+      <div class="diagramwrap">
+<pre class="mermaid">
+flowchart LR
+  DB["fuse_prod_db · MySQL<br/>22 tabelas reais"] -- "extrator agendado, leitura" --> KDB["fuse-kpis-db · Postgres<br/>views por KPI"]
+  KDB --> MB["Metabase · SQL ad-hoc"]
+  KDB --> DASH["Dashboard sob medida<br/>Next.js, vibe-coded"]
+</pre>
+      </div>
+      <div class="proscons">
+        <div class="pros"><h4>A favor</h4><ul>
+          <li>10 de 15 KPIs sem pedir nada a ninguém — só acesso de leitura ao MySQL de produção (ou uma réplica)</li>
+          <li>Nenhuma duplicação: os dados já existem como subproduto de features reais, não de um projeto de analytics</li>
+          <li>Infra barata: ~US$0-25/mês</li>
+        </ul></div>
+        <div class="cons"><h4>Contra</h4><ul>
+          <li>Não resolve sozinho os quatro sinais que exigem captura própria (7, 8-renomeação, 11-motivação, 14)</li>
+          <li>Query de <code>is_abandoned</code> (KPI 2) é mais complexa — cruza 4 tabelas, vale validar performance</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <div class="option chosen">
+      <div class="option-head"><h3>Captura própria unificada — 4 tipos de evento, uma tabela</h3><span class="badge rec">decidido</span></div>
+      <p>Uma única camada de instrumentação no <code>fuse-frontend</code>, cobrindo os quatro sinais que não existem hoje. Mesmo endpoint, mesma tabela, diferenciados por <code>event_type</code>.</p>
+      <div class="diagramwrap">
+<pre class="mermaid">
+flowchart LR
+  FE["fuse-frontend<br/>4 pontos de instrumentacao"] -- "fire-and-forget" --> EP["Endpoint proprio<br/>Vercel / Cloudflare Function"]
+  EP --> TBL["fuse_events<br/>user_id, session_id, event_type, payload, created_at"]
+  TBL --> KDB2["fuse-kpis-db"]
+</pre>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>event_type</th><th>KPI</th><th>Disparo</th><th>Payload</th></tr></thead>
+          <tbody>
+            <tr><td><code>SCREEN_NAV</code></td><td class="num">7</td><td><code>router.afterEach</code>, a cada troca de rota</td><td>from_route, to_route</td></tr>
+            <tr><td><code>FOLDER_RENAMED</code></td><td class="num">8</td><td>ao confirmar renomeação de pasta</td><td>collection_id, old_name, new_name</td></tr>
+            <tr><td><code>ENRICH_MOTIVATION</code></td><td class="num">11</td><td>ao acionar o Enrich, em paralelo à chamada normal</td><td>collection_id, interest</td></tr>
+            <tr><td><code>ACTIVITY_HEARTBEAT</code></td><td class="num">14</td><td>a cada ~30s com atividade real (teclado/scroll/clique)</td><td>device_type (detectado no navegador)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ol>
+        <li><strong>Definir os critérios de disparo</strong> — o que conta como "troca de tela" (KPI 7) e o intervalo/threshold do heartbeat (KPI 14). Decisão de produto, antes de instrumentar, para não virar ruído.</li>
+        <li><strong>Instrumentar os 4 pontos no frontend</strong> — poucas linhas cada, não são features novas.</li>
+        <li><strong>Endpoint e tabela próprios</strong> — uma function simples (Vercel/Cloudflare) grava em <code>fuse_events</code>, dentro do domínio que você controla, sem pedir nada ao backend da Fuse.</li>
+        <li><strong>Publicar e testar</strong> — validar em produção com poucos usuários antes de confiar nos números no dashboard.</li>
+      </ol>
+      <div class="proscons">
+        <div class="pros"><h4>A favor</h4><ul>
+          <li>Resolve os 4 sinais reais que faltam, todos no mesmo mecanismo — não precisa de 4 soluções diferentes</li>
+          <li>Zero custo de plataforma — endpoint e tabela próprios, sem contratar PostHog</li>
+          <li>Tempo ativo (KPI 14) medido de verdade, não aproximado por sessão de autenticação</li>
+        </ul></div>
+        <div class="cons"><h4>Contra</h4><ul>
+          <li>4 pontos de instrumentação para manter, em vez de 1 — mais superfície de teste antes de confiar nos números</li>
+        </ul></div>
+      </div>
+    </div>
+
+    <h3>Stack recomendada</h3>
+    <ul class="narrow">
+      <li><strong>Extrator:</strong> script Python ou Node, leitura direta do MySQL de produção (ou de uma réplica read-only, para não competir com carga da aplicação)</li>
+      <li><strong>Banco de destino:</strong> Postgres gerenciado (Supabase ou Neon) para o <code>fuse-kpis-db</code>, com views já calculando cada KPI</li>
+      <li><strong>Captura de evento próprio:</strong> uma tabela <code>fuse_events</code>, um endpoint, quatro tipos de evento — sem tocar no backend da Fuse</li>
+      <li><strong>BI aberto:</strong> Metabase, auto-hospedado (Docker/Railway) ou Cloud free tier</li>
+      <li><strong>Dashboard final:</strong> Next.js vibe-coded na Vercel, lendo do Postgres</li>
+    </ul>
+  </section>
+
+  <section id="cronograma">
+    <span class="eyebrow">05 — Cronograma</span>
+    <h2>Cronograma de desenvolvimento</h2>
+    <p class="narrow">O que precisa ser construído, em que parte do sistema, quanto tempo leva (desenvolvimento com IA + testes) e a qual KPI se relaciona.</p>
+    <div class="tablewrap">
+      <table style="min-width: 900px;">
+        <thead>
+          <tr>
+            <th>O que será desenvolvido</th>
+            <th>Onde mexe</th>
+            <th>Tempo estimado</th>
+            <th>KPI relacionado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Montagem do projeto</strong> — repositório, ambiente e ferramentas do painel de KPIs</td>
+            <td>Projeto novo, próprio do painel</td>
+            <td class="time">0,5 dia</td>
+            <td class="none">Base para todos</td>
+          </tr>
+          <tr>
+            <td><strong>Infraestrutura do painel</strong> — banco de dados próprio e canal para receber os dados novos, montados de forma automatizada (infraestrutura como código)</td>
+            <td>Estrutura própria do painel, fora do sistema da Fuse</td>
+            <td class="time">1–2 dias</td>
+            <td class="none">Base para todos</td>
+          </tr>
+          <tr>
+            <td><strong>Coleta dos dados que já existem</strong> — processo automático que traz os dados prontos para o painel</td>
+            <td>Leitura do sistema da Fuse (nada é alterado lá)</td>
+            <td class="time">3–5 dias</td>
+            <td>1, 2, 3, 5, 6, 9, 10, 12, 13, 15</td>
+          </tr>
+          <tr>
+            <td><strong>Captura de navegação</strong> — registrar quando a pessoa troca de tela</td>
+            <td>Aplicativo da Fuse (tela do usuário)</td>
+            <td class="time">1 dia</td>
+            <td>7</td>
+          </tr>
+          <tr>
+            <td><strong>Captura de renomeação de pasta</strong></td>
+            <td>Aplicativo da Fuse (tela do usuário)</td>
+            <td class="time">0,5–1 dia</td>
+            <td>8</td>
+          </tr>
+          <tr>
+            <td><strong>Captura do motivo digitado no Enrich</strong></td>
+            <td>Aplicativo da Fuse (tela do usuário)</td>
+            <td class="time">0,5–1 dia</td>
+            <td>11</td>
+          </tr>
+          <tr>
+            <td><strong>Captura de tempo ativo e tipo de aparelho</strong></td>
+            <td>Aplicativo da Fuse (tela do usuário)</td>
+            <td class="time">1–2 dias</td>
+            <td>14</td>
+          </tr>
+          <tr>
+            <td><strong>Testes das quatro capturas novas</strong> — validar com um grupo pequeno de usuários antes de confiar nos números</td>
+            <td>Aplicativo da Fuse + estrutura própria do painel</td>
+            <td class="time">1–2 dias</td>
+            <td>7, 8, 11, 14</td>
+          </tr>
+          <tr>
+            <td><strong>Painel final</strong> — a tela de dashboard que o time de produto vai usar no dia a dia</td>
+            <td>Projeto próprio do painel</td>
+            <td class="time">5–8 dias</td>
+            <td class="none">Todos</td>
+          </tr>
+          <tr>
+            <td><strong>Acompanhamento da entrega da Muralis</strong> — confirmar formato do dado assim que a feature deles estiver pronta</td>
+            <td>Fornecedor externo</td>
+            <td class="time none">Depende do fornecedor</td>
+            <td>4</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="narrow" style="margin-top: 1em;"><strong>Total estimado (sem contar o KPI 4, que depende do fornecedor):</strong> aproximadamente 18 dias de desenvolvimento com IA + testes, algo em torno de 3 a 4 semanas de calendário.</p>
+  </section>
+
+  <section id="ferramentas">
+    <span class="eyebrow">06 — Ferramenta de mercado vs. vibe code</span>
+    <h2>Por que decidimos não contratar uma ferramenta pronta</h2>
+    <div class="callout accent narrow">
+      <p>A ideia de usar uma ferramenta pronta (tipo PostHog, Mixpanel ou Amplitude) surgiu de um problema real — a proposta que a Muralis apresentou pra construir esses indicadores era cara e "artesanal": cada indicador seria feito sob medida no código, e qualquer tela ou funcionalidade nova no app exigiria um novo desenvolvimento só pra ajustar ou criar um indicador. Isso preocupava, porque a manutenção ficaria cara e lenta com o tempo — daí a busca por uma ferramenta de mercado que resolvesse isso de forma mais flexível.</p>
+      <p>Só que, ao investigar o banco de dados real da Fuse, descobrimos que a maior parte da informação que os indicadores precisam <strong>já existe</strong> — guardada nas tabelas que o próprio aplicativo usa pra funcionar (conversas do chat, favoritos, notificações etc.), como consequência natural de funcionalidades que já existem, não como um projeto de métricas à parte. Isso muda a conta: contratar uma ferramenta agora significaria pagar por assinatura e reconstruir do zero uma captura de dados que, na maior parte dos casos, já está disponível.</p>
+      <p>Dos 15 indicadores, só 4 realmente precisam de algo novo sendo registrado — e são pequenos o suficiente para resolver com uma solução simples e própria, sem custo de assinatura nem depender de mais um fornecedor. <strong>Decisão: construir tudo internamente.</strong> Extrair o que já existe, e criar uma captura simples e própria só para os 4 pontos que faltam.</p>
+    </div>
+    <p class="narrow">Recomendação: não contratar nenhuma ferramenta de mercado agora. Construir o extrator SQL primeiro — ele sozinho entrega 10 dos 15 KPIs. Resolver os quatro sinais que faltam com a tabela de eventos própria, criada e mantida por você via vibe code. Guardar PostHog na manga como opção só se, mais adiante, o volume de KPIs futuros justificar uma plataforma inteira — não antes disso.</p>
+  </section>
+
+  <section id="privacidade">
+    <span class="eyebrow">07 — Ponto de atenção</span>
+    <h2>Dado sensível no banco real</h2>
+    <div class="callout gold narrow">
+      <p><code>chat_messages.message</code>, <code>philosophical_analyses.prompt_text</code>/<code>reflection_text</code>, <code>favorite_uploads.text_content</code>, e <code>favorites.prompt_context</code> guardam texto literal do que a pessoa escreveu — incluindo reflexões pessoais. Isso é dado pessoal sensível sob a LGPD, espalhado por várias tabelas.</p>
+      <p>Recomendo: criptografia em repouso no <code>fuse-kpis-db</code>; controle de acesso por papel (agregados no Metabase para o time de produto, texto verbatim só para quem precisar de revisão qualitativa); política de retenção definida antes do extrator rodar pela primeira vez. Como a extração é toda via SQL direto — sem rotear esse texto por nenhum SaaS terceiro — o risco de exposição já fica mais contido do que seria com uma plataforma de eventos na frente.</p>
+    </div>
+  </section>
+
+  <section id="pendencias">
+    <span class="eyebrow">08 — Pendências</span>
+    <h2>O que ainda está em aberto</h2>
+    <p class="narrow">Todas as decisões de arquitetura e escopo já estão tomadas (ver <a href="#escopo">Escopo dev</a>, <a href="#arquitetura">Arquitetura</a> e <a href="#cronograma">Cronograma</a> para a execução). Restam só dois itens que não dependem de decisão — dependem de tempo ou de terceiro:</p>
+    <ol class="narrow">
+      <li><strong>KPI 2 — Abandono:</strong> falta rodar o teste em ambiente de desenvolvimento para confirmar se um prompt sem continuidade gera linha em <code>chat_conversations</code> mesmo assim, antes de confiar no número.</li>
+      <li><strong>KPI 4 — Qualidade da Associação Imagem-Texto:</strong> o mapeamento de campo exato só pode ser confirmado com a Muralis quando a tabela deles existir no dicionário de dados. Aguardando a entrega.</li>
+    </ol>
+  </section>
+
+</main>
+
+<footer>Preparado a partir de: dicionário de dados real (<code>fuse-fonte-principal/fuse-data/data-dictionary/dicionario-dados.md</code>, MySQL fuse_prod_db, 22 tabelas) · código-fonte fuse-backend/fuse-frontend (confirmação de Think Different, Enrich, curation_events) · Proposta Muralis FSE-01_2026 (07/07/2026) · Conversa com Gemini sobre ferramentas de KPI (jul 2026).</footer>
