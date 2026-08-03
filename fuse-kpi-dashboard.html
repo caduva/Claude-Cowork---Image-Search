@@ -485,7 +485,7 @@ flowchart LR
       <div class="diagramwrap">
 <pre class="mermaid">
 flowchart LR
-  FE["fuse-frontend<br/>4 pontos de instrumentacao"] -- "fire-and-forget" --> EP["Endpoint proprio<br/>Vercel / Cloudflare Function"]
+  FE["fuse-frontend<br/>4 pontos de instrumentacao"] -- "fire-and-forget" --> EP["Lambda Function URL<br/>mesma conta AWS da Fuse"]
   EP --> TBL["fuse_events<br/>user_id, session_id, event_type, payload, created_at"]
   TBL --> KDB2["fuse-kpis-db"]
 </pre>
@@ -504,7 +504,7 @@ flowchart LR
       <ol>
         <li><strong>Definir os critérios de disparo</strong> — o que conta como "troca de tela" (KPI 7) e o intervalo/threshold do heartbeat (KPI 14). Decisão de produto, antes de instrumentar, para não virar ruído.</li>
         <li><strong>Instrumentar os 4 pontos no frontend</strong> — poucas linhas cada, não são features novas.</li>
-        <li><strong>Endpoint e tabela próprios</strong> — uma function simples (Vercel/Cloudflare) grava em <code>fuse_events</code>, dentro do domínio que você controla, sem pedir nada ao backend da Fuse.</li>
+        <li><strong>Endpoint e tabela próprios</strong> — uma Lambda Function URL, na mesma conta AWS da Fuse, grava em <code>fuse_events</code>, dentro do domínio que você controla, sem pedir nada ao backend da Fuse.</li>
         <li><strong>Publicar e testar</strong> — validar em produção com poucos usuários antes de confiar nos números no dashboard.</li>
       </ol>
       <div class="proscons">
@@ -519,20 +519,26 @@ flowchart LR
       </div>
     </div>
 
-    <h3>Stack recomendada</h3>
+    <h3>Stack recomendada — decidido: dentro da mesma conta AWS da Fuse</h3>
+    <p class="narrow">A Fuse já roda inteira na AWS (RDS MySQL, VPC, ECS para tarefas avulsas). Decisão: colocar a infra do painel na mesma conta, para o extrator acessar o banco de produção por rede privada — sem expor o RDS publicamente nem depender de um provedor externo (descartada a opção Supabase/Neon considerada antes).</p>
     <ul class="narrow">
-      <li><strong>Extrator:</strong> script Python ou Node, leitura direta do MySQL de produção (ou de uma réplica read-only, para não competir com carga da aplicação)</li>
-      <li><strong>Banco de destino:</strong> Postgres gerenciado (Supabase ou Neon) para o <code>fuse-kpis-db</code>, com views já calculando cada KPI</li>
-      <li><strong>Captura de evento próprio:</strong> uma tabela <code>fuse_events</code>, um endpoint, quatro tipos de evento — sem tocar no backend da Fuse</li>
+      <li><strong>Banco do painel:</strong> RDS Postgres <code>db.t4g.micro</code>, single-AZ, 20GB gp3 — instância nova e separada do RDS de produção da Fuse, mesma conta e VPC (ou peered)</li>
+      <li><strong>Extrator:</strong> Lambda + EventBridge Scheduler (ou uma ECS Fargate Scheduled Task, mesmo padrão já usado nas tarefas avulsas da Fuse), leitura direta do MySQL de produção por rede privada</li>
+      <li><strong>Captura de evento próprio:</strong> Lambda Function URL como endpoint, gravando numa tabela <code>fuse_events</code> — quatro tipos de evento, sem tocar no backend da Fuse</li>
+      <li><strong>Separação de custo:</strong> tag <code>Project=fuse-kpis-dashboard</code> em todo recurso, ativada como Cost Allocation Tag no Billing — mesma conta da Fuse, custo visível à parte</li>
+      <li><strong>Cuidado:</strong> evitar NAT Gateway (~US$32/mês) — o extrator só precisa falar com o RDS dentro da VPC; usar VPC endpoints em vez de saída para internet</li>
       <li><strong>BI aberto:</strong> Metabase, auto-hospedado (Docker/Railway) ou Cloud free tier</li>
-      <li><strong>Dashboard final:</strong> Next.js vibe-coded na Vercel, lendo do Postgres</li>
+      <li><strong>Dashboard final:</strong> Next.js vibe-coded na Vercel, consultando o Postgres via API própria</li>
     </ul>
+    <p class="narrow">Custo estimado: ~US$15–20/mês (RDS + Lambda/ECS + EventBridge, sem NAT Gateway).</p>
   </section>
 
   <section id="cronograma">
     <span class="eyebrow">05 — Cronograma</span>
     <h2>Cronograma de desenvolvimento</h2>
-    <p class="narrow">O que precisa ser construído, em que parte do sistema, quanto tempo leva (desenvolvimento com IA + testes) e a qual KPI se relaciona.</p>
+    <p class="narrow">Decisão de sequenciamento: entregar primeiro os KPIs que já dá para tirar do dado existente, sem tocar em nada do frontend da Fuse. Só depois entra o desenvolvimento no aplicativo da Fuse (os quatro KPIs que precisam de captura nova). Isso separa um risco do outro — o painel com os 10 KPIs prontos fica de pé e em uso antes de qualquer mudança no app da Fuse começar.</p>
+
+    <h3>Fase 1 — Entregar primeiro: KPIs com o dado que já existe</h3>
     <div class="tablewrap">
       <table style="min-width: 900px;">
         <thead>
@@ -551,9 +557,9 @@ flowchart LR
             <td class="none">Base para todos</td>
           </tr>
           <tr>
-            <td><strong>Infraestrutura do painel</strong> — banco de dados próprio e canal para receber os dados novos, montados de forma automatizada (infraestrutura como código)</td>
+            <td><strong>Infraestrutura do banco do painel</strong> — banco de dados próprio, montado de forma automatizada (infraestrutura como código)</td>
             <td>Estrutura própria do painel, fora do sistema da Fuse</td>
-            <td class="time">1–2 dias</td>
+            <td class="time">1 dia</td>
             <td class="none">Base para todos</td>
           </tr>
           <tr>
@@ -561,6 +567,35 @@ flowchart LR
             <td>Leitura do sistema da Fuse (nada é alterado lá)</td>
             <td class="time">3–5 dias</td>
             <td>1, 2, 3, 5, 6, 9, 10, 12, 13, 15</td>
+          </tr>
+          <tr>
+            <td><strong>Painel — primeira versão</strong> — tela de dashboard cobrindo os 10 KPIs prontos, já em uso pelo time de produto</td>
+            <td>Projeto próprio do painel</td>
+            <td class="time">4–6 dias</td>
+            <td class="none">1, 2, 3, 5, 6, 9, 10, 12, 13, 15</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="narrow"><strong>Subtotal Fase 1:</strong> ~9–13 dias. Ao final desta fase, o painel já está em uso com 10 dos 15 KPIs — nada no frontend da Fuse foi tocado ainda.</p>
+
+    <h3>Fase 2 — Depois: desenvolvimento no frontend da Fuse</h3>
+    <div class="tablewrap">
+      <table style="min-width: 900px;">
+        <thead>
+          <tr>
+            <th>O que será desenvolvido</th>
+            <th>Onde mexe</th>
+            <th>Tempo estimado</th>
+            <th>KPI relacionado</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Infraestrutura do canal de eventos</strong> — endpoint próprio para receber os dados novos do aplicativo da Fuse</td>
+            <td>Estrutura própria do painel, fora do sistema da Fuse</td>
+            <td class="time">0,5–1 dia</td>
+            <td class="none">Base para 7, 8, 11, 14</td>
           </tr>
           <tr>
             <td><strong>Captura de navegação</strong> — registrar quando a pessoa troca de tela</td>
@@ -593,11 +628,23 @@ flowchart LR
             <td>7, 8, 11, 14</td>
           </tr>
           <tr>
-            <td><strong>Painel final</strong> — a tela de dashboard que o time de produto vai usar no dia a dia</td>
+            <td><strong>Painel — atualização</strong> — incorporar os 4 novos KPIs à tela já em uso</td>
             <td>Projeto próprio do painel</td>
-            <td class="time">5–8 dias</td>
-            <td class="none">Todos</td>
+            <td class="time">1–2 dias</td>
+            <td class="none">7, 8, 11, 14</td>
           </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="narrow"><strong>Subtotal Fase 2:</strong> ~5,5–9,5 dias.</p>
+
+    <h3>Em paralelo, sem consumir seu tempo</h3>
+    <div class="tablewrap">
+      <table style="min-width: 700px;">
+        <thead>
+          <tr><th>O que será desenvolvido</th><th>Onde mexe</th><th>Tempo estimado</th><th>KPI relacionado</th></tr>
+        </thead>
+        <tbody>
           <tr>
             <td><strong>Acompanhamento da entrega da Muralis</strong> — confirmar formato do dado assim que a feature deles estiver pronta</td>
             <td>Fornecedor externo</td>
@@ -607,7 +654,8 @@ flowchart LR
         </tbody>
       </table>
     </div>
-    <p class="narrow" style="margin-top: 1em;"><strong>Total estimado (sem contar o KPI 4, que depende do fornecedor):</strong> aproximadamente 18 dias de desenvolvimento com IA + testes, algo em torno de 3 a 4 semanas de calendário.</p>
+
+    <p class="narrow" style="margin-top: 1em;"><strong>Total estimado (sem contar o KPI 4, que depende do fornecedor):</strong> Fase 1 + Fase 2 ≈ 18 dias de desenvolvimento com IA + testes no total, algo em torno de 3 a 4 semanas de calendário em dedicação integral.</p>
   </section>
 
   <section id="ferramentas">
