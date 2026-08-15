@@ -1,0 +1,2 @@
+:HL["/Claude-Cowork---Image-Search/kpis/_next/static/chunks/3dfuo5cz8h7-2.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"gwTwCQS5zXqYa78bnnwY7"}
